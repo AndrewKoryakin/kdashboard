@@ -9,17 +9,20 @@ Mandatory arguments:
   -i, --install                install into 'kube-nginx-ingress' namespace
   -u, --upgrade                upgrade existing installation, will reuse password and host names
   -d, --delete                 remove everything, including the namespace
-Optional arguments:
-  -h, --help                   output this message
       --gitlab-url             set gitlab url with schema (https://gitlab.example.com)
       --oauth2-id              set OAUTH2_PROXY_CLIENT_ID from gitlab
       --oauth2-secret          set OAUTH2_PROXY_CLIENT_SECRET from gitlab
       --dashboard-url          set dashboard url without schema (dashboard.example.com)
+Optional arguments:
+  -h, --help                   output this message
+
 EOF
 
 RANDOM_NUMBER=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 4 | head -n 1)
 TMP_DIR="/tmp/kubernetes-dashboard-$RANDOM_NUMBER"
 WORKDIR="$TMP_DIR/kubernetes-dashboard"
+DASHBOARD_NAMESPACE="kube-dashboard"
+OLD_DASHBOARD_NAMESPACE="kube-system"
 
 if [ -z "${KUBECONFIG}" ]; then
     export KUBECONFIG=~/.kube/config
@@ -96,22 +99,25 @@ function install {
   sed -i -e "s%##OAUTH2_PROXY_CLIENT_SECRET##%$OAUTH2_PROXY_CLIENT_SECRET%g" manifests/kube-dashboard-oauth2-proxy.yaml
   sed -i -e "s%##OAUTH2_PROXY_COOKIE_SECRET##%$OAUTH2_PROXY_COOKIE_SECRET%g" manifests/kube-dashboard-oauth2-proxy.yaml
   sed -i -e "s%##DASHBORD_URL##%$DASHBORD_URL%g" manifests/kube-dashboard-ingress.yaml
+  kubectl create ns $DASHBOARD_NAMESPACE || true
   kubectl apply -Rf manifests/
 }
 
 function upgrade {
-  if $(kubectl get deployment oauth2-proxy -n kube-system > /dev/null 2>/dev/null); then
-    LOGIN_URL=$(kubectl get deployment oauth2-proxy -n kube-system -o json | jq -r '.spec.template.spec.containers[0]' |grep '\-login\-url'| sed -e 's/^[[:space:]]*//'| sed -e 's/,$//')
-    REDEEM_URL=$(kubectl get deployment oauth2-proxy -n kube-system -o json | jq -r '.spec.template.spec.containers[0]' |grep '\-redeem\-url'| sed -e 's/^[[:space:]]*//'| sed -e 's/,$//')
-    VALIDATE_URL=$(kubectl get deployment oauth2-proxy -n kube-system -o json | jq -r '.spec.template.spec.containers[0]' |grep '\-validate\-url'| sed -e 's/^[[:space:]]*//'| sed -e 's/,$//')
-    OAUTH2_PROXY_COOKIE_SECRET=$(kubectl get deployment oauth2-proxy -n kube-system -o json | jq -r '.spec.template.spec.containers[0]' |grep 'OAUTH2_PROXY_COOKIE_SECRET' -A1  |grep value |awk -F ': ' '{print $2}')
-    OAUTH2_PROXY_CLIENT_SECRET=$(kubectl get deployment oauth2-proxy -n kube-system -o json | jq -r '.spec.template.spec.containers[0]' |grep 'OAUTH2_PROXY_CLIENT_SECRET' -A1  |grep value |awk -F ': ' '{print $2}')
-    OAUTH2_PROXY_CLIENT_ID=$(kubectl get deployment oauth2-proxy -n kube-system -o json | jq -r '.spec.template.spec.containers[0]' |grep 'OAUTH2_PROXY_CLIENT_ID' -A1  |grep value |awk -F ': ' '{print $2}')
+  CURENT_DASHBOARD_NAMESPACE=$OLD_DASHBOARD_NAMESPACE
+  kubectl get deployment kubernetes-dashboard -n $DASHBOARD_NAMESPACE >/dev/null 2>&1 && CURENT_DASHBOARD_NAMESPACE=$DASHBOARD_NAMESPACE
+  if $(kubectl get deployment oauth2-proxy -n $CURENT_DASHBOARD_NAMESPACE > /dev/null 2>/dev/null); then
+    LOGIN_URL=$(kubectl get deployment oauth2-proxy -n $CURENT_DASHBOARD_NAMESPACE -o json | jq -r '.spec.template.spec.containers[0]' |grep '\-login\-url'| sed -e 's/^[[:space:]]*//'| sed -e 's/,$//')
+    REDEEM_URL=$(kubectl get deployment oauth2-proxy -n $CURENT_DASHBOARD_NAMESPACE -o json | jq -r '.spec.template.spec.containers[0]' |grep '\-redeem\-url'| sed -e 's/^[[:space:]]*//'| sed -e 's/,$//')
+    VALIDATE_URL=$(kubectl get deployment oauth2-proxy -n $CURENT_DASHBOARD_NAMESPACE -o json | jq -r '.spec.template.spec.containers[0]' |grep '\-validate\-url'| sed -e 's/^[[:space:]]*//'| sed -e 's/,$//')
+    OAUTH2_PROXY_COOKIE_SECRET=$(kubectl get deployment oauth2-proxy -n $CURENT_DASHBOARD_NAMESPACE -o json | jq -r '.spec.template.spec.containers[0]' |grep 'OAUTH2_PROXY_COOKIE_SECRET' -A1  |grep value |awk -F ': ' '{print $2}')
+    OAUTH2_PROXY_CLIENT_SECRET=$(kubectl get deployment oauth2-proxy -n $CURENT_DASHBOARD_NAMESPACE -o json | jq -r '.spec.template.spec.containers[0]' |grep 'OAUTH2_PROXY_CLIENT_SECRET' -A1  |grep value |awk -F ': ' '{print $2}')
+    OAUTH2_PROXY_CLIENT_ID=$(kubectl get deployment oauth2-proxy -n $CURENT_DASHBOARD_NAMESPACE -o json | jq -r '.spec.template.spec.containers[0]' |grep 'OAUTH2_PROXY_CLIENT_ID' -A1  |grep value |awk -F ': ' '{print $2}')
   else
     echo "Can't upgrade. Deployment kubernetes-dashboard does not exists. " && exit 1
   fi
-  if $(kubectl get deployment oauth2-proxy -n kube-system > /dev/null 2>/dev/null); then
-    DASHBORD_URL=$(kubectl get ing oauth2-proxy -n kube-system -o json | jq -r '.spec.tls[0].hosts[0]')
+  if $(kubectl get deployment oauth2-proxy -n $CURENT_DASHBOARD_NAMESPACE > /dev/null 2>/dev/null); then
+    DASHBORD_URL=$(kubectl get ing oauth2-proxy -n $CURENT_DASHBOARD_NAMESPACE -o json | jq -r '.spec.tls[0].hosts[0]')
   else
     echo "Can't upgrade. Ingress oauth2-proxy does not exists. " && exit 1
   fi
@@ -123,14 +129,24 @@ function upgrade {
   sed -i -e "s%##OAUTH2_PROXY_COOKIE_SECRET##%$OAUTH2_PROXY_COOKIE_SECRET%g" manifests/kube-dashboard-oauth2-proxy.yaml
   sed -i -e "s%##DASHBORD_URL##%$DASHBORD_URL%g" manifests/kube-dashboard-ingress.yaml
   kubectl delete clusterrolebinding kubernetes-dashboard ||true
-  kubectl delete svc oauth2-proxy -n kube-system ||true
-  kubectl delete svc kubernetes-dashboard -n kube-system ||true
+  kubectl delete svc oauth2-proxy -n $DASHBOARD_NAMESPACE ||true
+  kubectl delete svc kubernetes-dashboard -n $DASHBOARD_NAMESPACE ||true
+
+  kubectl delete ing external-auth-oauth2 -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
+  kubectl delete ing oauth2-proxy -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
+  kubectl delete deployment oauth2-proxy -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
+  kubectl delete svc oauth2-proxy -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
+  kubectl delete sa kubernetes-dashboard -n $OLD_DASHBOARD_NAMESPACE &> /dev/null|| true
+  kubectl delete deployment kubernetes-dashboard -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
+  kubectl delete svc kubernetes-dashboard -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
+
   kubectl apply -Rf manifests/
 }
 
 if [ "$MODE" == "install" ]
 then
-  kubectl get deployment kubernetes-dashboard -n kube-system >/dev/null 2>&1 && FIRST_INSTALL="false"
+  kubectl get deployment kubernetes-dashboard -n $DASHBOARD_NAMESPACE >/dev/null 2>&1 && FIRST_INSTALL="false"
+  kubectl get deployment kubernetes-dashboard -n $OLD_DASHBOARD_NAMESPACE >/dev/null 2>&1 && FIRST_INSTALL="false"
   if [ "$FIRST_INSTALL" == "true" ]
   then
     install
@@ -142,15 +158,17 @@ then
   upgrade
 elif [ "$MODE" == "delete" ]
 then
-  kubectl delete ing external-auth-oauth2 -n kube-system ||true
-  kubectl delete ing oauth2-proxy -n kube-system ||true
-  kubectl delete deployment oauth2-proxy -n kube-system ||true
-  kubectl delete svc oauth2-proxy -n kube-system ||true
   kubectl delete clusterrole dashboard ||true
-  kubectl delete sa kubernetes-dashboard -n kube-system || true
   kubectl delete clusterrolebinding kubernetes-dashboard ||true
-  kubectl delete deployment kubernetes-dashboard -n kube-system ||true
-  kubectl delete svc kubernetes-dashboard -n kube-system ||true
+  kubectl delete ns $DASHBOARD_NAMESPACE || true
+
+  kubectl delete ing external-auth-oauth2 -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
+  kubectl delete ing oauth2-proxy -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
+  kubectl delete deployment oauth2-proxy -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
+  kubectl delete svc oauth2-proxy -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
+  kubectl delete sa kubernetes-dashboard -n $OLD_DASHBOARD_NAMESPACE &> /dev/null|| true
+  kubectl delete deployment kubernetes-dashboard -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
+  kubectl delete svc kubernetes-dashboard -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
 fi
 
 function cleanup {

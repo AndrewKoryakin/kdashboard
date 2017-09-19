@@ -23,7 +23,7 @@ metadata:
   labels:
     k8s-app: kubernetes-dashboard
   name: kubernetes-dashboard
-  namespace: kube-system
+  namespace: kube-dashboard
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -39,7 +39,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kubernetes-dashboard
-  namespace: kube-system
+  namespace: kube-dashboard
 
 ---
 kind: Deployment
@@ -48,7 +48,7 @@ metadata:
   labels:
     k8s-app: kubernetes-dashboard
   name: kubernetes-dashboard
-  namespace: kube-system
+  namespace: kube-dashboard
 spec:
   replicas: 2
   revisionHistoryLimit: 10
@@ -93,7 +93,7 @@ metadata:
   labels:
     k8s-app: kubernetes-dashboard
   name: kubernetes-dashboard
-  namespace: kube-system
+  namespace: kube-dashboard
 spec:
   ports:
   - port: 80
