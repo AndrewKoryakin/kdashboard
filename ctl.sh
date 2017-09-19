@@ -140,6 +140,7 @@ function upgrade {
   kubectl delete deployment kubernetes-dashboard -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
   kubectl delete svc kubernetes-dashboard -n $OLD_DASHBOARD_NAMESPACE &> /dev/null||true
 
+  kubectl create ns $DASHBOARD_NAMESPACE || true
   kubectl apply -Rf manifests/
 }
 
