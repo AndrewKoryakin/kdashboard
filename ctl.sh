@@ -86,6 +86,8 @@ cd "$TMP_DIR"
 git clone --depth 1 https://github.com/flant/kubernetes-dashboard.git
 cd "$WORKDIR"
 
+KUBE_SYSTEM=$(kubectl get node -l node-role/system -o name |wc -l)
+
 LOGIN_URL="${GITLAB_URL}/oauth/authorize"
 REDEEM_URL="${GITLAB_URL}/oauth/token"
 VALIDATE_URL="${GITLAB_URL}/api/v3/user"
@@ -99,6 +101,14 @@ function install {
   sed -i -e "s%##OAUTH2_PROXY_CLIENT_SECRET##%$OAUTH2_PROXY_CLIENT_SECRET%g" manifests/kube-dashboard-oauth2-proxy.yaml
   sed -i -e "s%##OAUTH2_PROXY_COOKIE_SECRET##%$OAUTH2_PROXY_COOKIE_SECRET%g" manifests/kube-dashboard-oauth2-proxy.yaml
   sed -i -e "s%##DASHBORD_URL##%$DASHBORD_URL%g" manifests/kube-dashboard-ingress.yaml
+  if [[ $KUBE_SYSTEM -gt 0 ]]; then
+    sed -i -e "s%##AFFINITY##%%g" manifests/kube-dashboard.yaml
+    sed -i -e "s%##AFFINITY##%%g" manifests/kube-dashboard-oauth2-proxy.yaml
+  else
+    sed -i -e "s%##AFFINITY##.*%%g" manifests/kube-dashboard.yaml
+    sed -i -e "s%##AFFINITY##.*%%g" manifests/kube-dashboard-oauth2-proxy.yaml
+  fi
+
   kubectl create ns $DASHBOARD_NAMESPACE || true
   kubectl apply -Rf manifests/
 }
@@ -128,6 +138,13 @@ function upgrade {
   sed -i -e "s%##OAUTH2_PROXY_CLIENT_SECRET##%$OAUTH2_PROXY_CLIENT_SECRET%g" manifests/kube-dashboard-oauth2-proxy.yaml
   sed -i -e "s%##OAUTH2_PROXY_COOKIE_SECRET##%$OAUTH2_PROXY_COOKIE_SECRET%g" manifests/kube-dashboard-oauth2-proxy.yaml
   sed -i -e "s%##DASHBORD_URL##%$DASHBORD_URL%g" manifests/kube-dashboard-ingress.yaml
+  if [[ $KUBE_SYSTEM -gt 0 ]]; then
+    sed -i -e "s%##AFFINITY##%%g" manifests/kube-dashboard.yaml
+    sed -i -e "s%##AFFINITY##%%g" manifests/kube-dashboard-oauth2-proxy.yaml
+  else
+    sed -i -e "s%##AFFINITY##.*%%g" manifests/kube-dashboard.yaml
+    sed -i -e "s%##AFFINITY##.*%%g" manifests/kube-dashboard-oauth2-proxy.yaml
+  fi
   kubectl delete clusterrolebinding kubernetes-dashboard ||true
   kubectl delete svc oauth2-proxy -n $DASHBOARD_NAMESPACE ||true
   kubectl delete svc kubernetes-dashboard -n $DASHBOARD_NAMESPACE ||true

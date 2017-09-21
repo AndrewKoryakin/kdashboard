@@ -60,6 +60,13 @@ spec:
       labels:
         k8s-app: kubernetes-dashboard
     spec:
+##AFFINITY##      affinity:
+##AFFINITY##        nodeAffinity:
+##AFFINITY##          requiredDuringSchedulingIgnoredDuringExecution:
+##AFFINITY##            nodeSelectorTerms:
+##AFFINITY##            - matchExpressions:
+##AFFINITY##              - key: node-role/system
+##AFFINITY##                operator: Exists
       containers:
       - name: kubernetes-dashboard
         image: gcr.io/google_containers/kubernetes-dashboard-amd64:v1.6.3
@@ -82,10 +89,11 @@ spec:
           initialDelaySeconds: 30
           timeoutSeconds: 30
       serviceAccountName: kubernetes-dashboard
-      # Comment the following tolerations if Dashboard must not be deployed on master
       tolerations:
-      - key: node-role.kubernetes.io/master
-        effect: NoSchedule
+      - effect: NoExecute
+        key: node-role/system
+        operator: Exists
+
 ---
 kind: Service
 apiVersion: v1
@@ -101,3 +109,53 @@ spec:
   selector:
     k8s-app: kubernetes-dashboard
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+dns
+
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoExecute
+        key: node-role/system
+
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+              - key: node-role/system
+                operator: Exists
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+              - key: CriticalAddonsOnly
+                operator: Exists
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: node-role/system
+                operator: Exists

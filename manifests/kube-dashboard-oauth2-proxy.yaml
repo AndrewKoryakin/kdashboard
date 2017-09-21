@@ -15,6 +15,13 @@ spec:
       labels:
         k8s-app: oauth2-proxy
     spec:
+##AFFINITY##      affinity:
+##AFFINITY##        nodeAffinity:
+##AFFINITY##          requiredDuringSchedulingIgnoredDuringExecution:
+##AFFINITY##            nodeSelectorTerms:
+##AFFINITY##            - matchExpressions:
+##AFFINITY##              - key: node-role/system
+##AFFINITY##                operator: Exists
       containers:
       - args:
         - --provider=gitlab
@@ -54,6 +61,10 @@ spec:
         ports:
         - containerPort: 4180
           protocol: TCP
+      tolerations:
+      - effect: NoExecute
+        key: node-role/system
+        operator: Exists
 
 ---
 
