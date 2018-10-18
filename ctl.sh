@@ -83,7 +83,7 @@ type jq >/dev/null 2>&1 || { echo >&2 "I require jq but it's not installed.  Abo
 
 mkdir -p "$TMP_DIR"
 cd "$TMP_DIR"
-git clone --depth 1 https://github.com/flant/kubernetes-dashboard.git
+git clone --depth 1 https://github.com/AndrewKoryakin/kdashboard.git
 cd "$WORKDIR"
 
 KUBE_SYSTEM=$(kubectl get node -l node-role/system -o name |wc -l)
