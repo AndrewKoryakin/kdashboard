@@ -20,7 +20,7 @@ EOF
 
 RANDOM_NUMBER=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 4 | head -n 1)
 TMP_DIR="/tmp/kubernetes-dashboard-$RANDOM_NUMBER"
-WORKDIR="$TMP_DIR/kubernetes-dashboard"
+WORKDIR="$TMP_DIR/kdashboard"
 DASHBOARD_NAMESPACE="kube-dashboard"
 OLD_DASHBOARD_NAMESPACE="kube-system"
 
