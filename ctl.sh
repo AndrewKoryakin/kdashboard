@@ -19,6 +19,7 @@ Optional arguments:
 EOF
 
 RANDOM_NUMBER=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 4 | head -n 1)
+OLD_PWD=$PWD
 TMP_DIR="/tmp/kubernetes-dashboard-$RANDOM_NUMBER"
 WORKDIR="$TMP_DIR/kdashboard"
 DASHBOARD_NAMESPACE="kube-dashboard"
@@ -83,7 +84,7 @@ type jq >/dev/null 2>&1 || { echo >&2 "I require jq but it's not installed.  Abo
 
 mkdir -p "$TMP_DIR"
 cd "$TMP_DIR"
-git clone --depth 1 https://github.com/AndrewKoryakin/kdashboard.git
+cp -r "$OLD_PWD" "$WORKDIR"
 cd "$WORKDIR"
 
 KUBE_SYSTEM=$(kubectl get node -l node-role/system -o name |wc -l)
